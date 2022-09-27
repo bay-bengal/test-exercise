@@ -1,0 +1,20 @@
+module "cron" {
+  count               = length(var.cron_list)
+  source              = "git@github.com:OCP-Zmarta/terraform-deploy-project-module-cron?ref=0.0.3"
+  project_name        = data.terraform_remote_state.main_service.outputs.project_name
+  region              = data.terraform_remote_state.main_service.outputs.region
+  vpc_id              = data.terraform_remote_state.main_service.outputs.vpc_id
+  ecs_cluster_id      = data.terraform_remote_state.main_service.outputs.ecs_cluster_id
+  ecs_cluster_name    = data.terraform_remote_state.main_service.outputs.ecs_cluster_name
+  subnets             = data.terraform_remote_state.main_service.outputs.subnets
+  github_role_name    = data.terraform_remote_state.main_service.outputs.github_actions_deploy_role_name
+  billing_id          = data.terraform_remote_state.main_service.outputs.billing_id
+  xray_assume_role    = data.terraform_remote_state.main_service.outputs.xray_assume_role
+  secret_arn          = data.terraform_remote_state.main_service.outputs.secret_arn
+  taskdefinition_arn  = data.terraform_remote_state.main_service.outputs.taskdefinition_arn
+  environment         = data.terraform_remote_state.main_service.outputs.environment
+  cpu                 = var.cpu
+  memory              = var.memory
+  schedule_expression = var.cron_list[count.index].schedule_expression
+  cmd_line            = var.cron_list[count.index].cmd_line
+}

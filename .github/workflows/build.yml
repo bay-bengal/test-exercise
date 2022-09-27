@@ -1,0 +1,58 @@
+name: Build
+
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ main ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    permissions:
+      id-token: write
+      contents: write
+      packages: write
+    environment: build
+    steps:
+    # The value of github.repository in lower case.
+    - name: set lower case owner name
+      run: |
+        echo "REPO_LC=${REPO,,}" >>${GITHUB_ENV}
+      env:
+        REPO: '${{ github.repository }}'
+
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    # Log in to ghcr
+    - name: Log in to the Container registry
+      uses: docker/login-action@v1.10.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # login to code artifact
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        role-to-assume: ${{ secrets.OCP_PACKAGES_ACTIONS_ROLE }}
+        role-session-name: githubactions
+        aws-region: eu-west-1
+    - name: Authenticate to CodeArtifact
+      run: |
+        export CODEARTIFACT_AUTH_TOKEN=`aws codeartifact get-authorization-token --domain bauer-ocp-packages-domain --duration-seconds 0 --query authorizationToken --output text`
+        echo "::add-mask::$CODEARTIFACT_AUTH_TOKEN"
+        echo "CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN" >> $GITHUB_ENV
+
+    # Build and push the Docker Image
+    - name: Build and Push the Docker Image
+      env:
+        DOCKER_BUILDKIT: 1
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build . --file Dockerfile --tag ghcr.io/$REPO_LC:$IMAGE_TAG --build-arg "CODEARTIFACT_AUTH_TOKEN=$CODEARTIFACT_AUTH_TOKEN"
+        docker push ghcr.io/$REPO_LC:$IMAGE_TAG
