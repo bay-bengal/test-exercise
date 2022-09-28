@@ -1,0 +1,114 @@
+{
+  "executionRoleArn": "arn:aws:iam::631263907986:role/ecs_task_execution_role20220928111329870900000002",
+  "containerDefinitions": [
+    {
+      "name": "xray-daemon",
+      "image": "public.ecr.aws/w1m2m2a3/aws-xray-daemon:latest",
+      "cpu": 32,
+      "memoryReservation": 256,
+      "command": [
+        "-r",
+        "arn:aws:iam::715140016261:role/xray-assume-role20210409120953608100000001"
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "secretOptions": null,
+        "options": {
+          "awslogs-group": "jahed-project-test",
+          "awslogs-region": "eu-west-1",
+          "awslogs-stream-prefix": "xray"
+        }
+      },
+      "portMappings" : [
+          {
+              "hostPort": 2000,
+              "containerPort": 2000,
+              "protocol": "udp"
+          }
+       ]
+    },
+    {
+      "dnsSearchDomains": null,
+      "environmentFiles": null,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "secretOptions": null,
+        "options": {
+          "awslogs-group": "jahed-project-test",
+          "awslogs-region": "eu-west-1",
+          "awslogs-stream-prefix": "jahed-project-test"
+        }
+      },
+      "entryPoint": null,
+      "portMappings": [
+        {
+          "hostPort": 3000,
+          "protocol": "tcp",
+          "containerPort": 3000
+        }
+      ],
+      "command": null,
+      "linuxParameters": null,
+      "cpu": 0,
+      "environment": [{"name":"NODE_ENV","value":"production"},{"name":"SECRET_ARN","value":"arn:aws:secretsmanager:eu-west-1:631263907986:secret:jahed-project-test-jznInB"},{"name":"AWS_XRAY_TRACING_NAME","value":"jahed-project-test-non-production"},{"name":"FARGATE","value":"yes"},{"name":"AWS_XRAY_DAEMON_ADDRESS","value":"127.0.0.1:2000"},{"name":"PORT","value":"3000"},{"name":"port","value":"3000"}],
+      "resourceRequirements": null,
+      "ulimits": null,
+      "dnsServers": null,
+      "mountPoints": [],
+      "workingDirectory": null,
+      "secrets": null,
+      "dockerSecurityOptions": null,
+      "memory": null,
+      "memoryReservation": null,
+      "volumesFrom": [],
+      "stopTimeout": null,
+      "image": "631263907986.dkr.ecr.eu-west-1.amazonaws.com/jahed-project-test:latest",
+      "startTimeout": null,
+      "firelensConfiguration": null,
+      "dependsOn": null,
+      "disableNetworking": null,
+      "interactive": null,
+      "healthCheck": null,
+      "essential": true,
+      "links": null,
+      "hostname": null,
+      "extraHosts": null,
+      "pseudoTerminal": null,
+      "user": null,
+      "readonlyRootFilesystem": null,
+      "dockerLabels": {
+        "PROMETHEUS_EXPORTER_PORT": "3000"
+      },
+      "systemControls": null,
+      "name": "jahed-project-test"
+    }
+  ],
+  "memory": "512",
+  "taskRoleArn": "arn:aws:iam::631263907986:role/task_role_jahed-project-test20220928111329877500000003",
+  "compatibilities": [
+    "EC2",
+    "FARGATE"
+  ],
+  "taskDefinitionArn": "arn:aws:ecs:eu-west-1:631263907986:task-definition/jahed-project-test",
+  "family": "jahed-project-test",
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "networkMode": "awsvpc",
+  "cpu": "256",
+  "status": "ACTIVE",
+  "tags": [
+    {
+      "key": "Project",
+      "value": "jahed-project-test"
+    },
+    {
+      "key": "Billing-Id",
+      "value": "billing_id"
+    },
+    {
+      "key": "Build",
+      "value": "${IMAGE_VERSION}"
+    }
+  ]
+}

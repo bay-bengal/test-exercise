@@ -1,0 +1,150 @@
+# This file setups a CD pipeline for GitHub Actions.
+
+
+name: Deploy_jahed-project-test_non-production
+
+# Controls when the workflow will run
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  deploy:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-20.04
+    environment: non-production
+    # These permissions are needed to interact with GitHub's OIDC Token endpoint.
+    permissions:
+      id-token: write
+      contents: write
+      packages: read
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+
+    # The value of github.repository in lower case.
+    - name: set lower case owner name
+      run: |
+        echo "REPO_LC=${REPO,,}" >>${GITHUB_ENV}
+      env:
+        REPO: '${{ github.repository }}'
+
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+
+    # Log in to ghcr
+    - name: Log in to the Container registry
+      uses: docker/login-action@v1.10.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Pull the Docker image
+    - name: Pull the Docker Image
+      env:
+        IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+      run: | 
+        docker pull ghcr.io/$REPO_LC:$IMAGE_TAG
+
+    # Get AWS Credentials
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1.7.0
+      with:
+        role-to-assume: arn:aws:iam::631263907986:role/github-deploy-role
+        role-session-name: githubactions
+        aws-region: eu-west-1
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    # Push the Docker Image
+    - name: Push the Docker Image
+      env:
+        IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: jahed-project-test
+      run: | 
+        docker tag ghcr.io/$REPO_LC:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+    - name: Deploy (Hand over to Codepipeline in AWS)
+      env:
+        IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+        ENVIRONMENT: non-production
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: jahed-project-test
+        S3_BUCKET: source-jahed-project-test20220928111330287700000005
+      run: |
+        echo ""
+        echo "########################################"
+        echo Install moreutils to get sponge
+        echo "########################################"
+        sudo apt-get install -y moreutils
+
+        echo ""
+        echo "########################################"
+        echo Working on copy of files
+        echo "########################################"
+        mkdir codepipeline && cp deploy/$ENVIRONMENT/jahed-project-test/* codepipeline/
+
+        echo ""
+        echo "########################################"
+        echo Find the right container
+        echo "########################################"
+        number=$(cat codepipeline/taskdef.json |jq '.containerDefinitions| to_entries[]| select(.value.name=="jahed-project-test") | .key')
+
+        echo ""
+        echo "########################################"
+        echo Change the image
+        echo "########################################"
+        cat codepipeline/taskdef.json | jq '.containerDefinitions[$num].image = $v' --arg v $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG --argjson num $number | sponge codepipeline/taskdef.json
+
+        echo ""
+        echo "########################################"
+        echo Add build nr AWS_XRAY_TRACING_NAME
+        echo "########################################"
+        number2=$(cat codepipeline/taskdef.json |jq --argjson num $number '.containerDefinitions[1].environment | to_entries[]| select(.value.name=="AWS_XRAY_TRACING_NAME") | .key')
+        cat codepipeline/taskdef.json | jq '.containerDefinitions[$num].environment[$num2].value =  ( .containerDefinitions[$num].environment[$num2].value + "-" + $commit)' --argjson num $number --argjson num2 $number2 --arg commit $IMAGE_TAG | sponge codepipeline/taskdef.json
+
+        echo ""
+        echo "########################################"
+        echo Tag with build nr
+        echo "########################################"
+        number=$(cat codepipeline/taskdef.json |jq '.tags| to_entries[]| select(.value.key=="Build") | .key')
+        cat codepipeline/taskdef.json |jq '.tags[$num].value = $v' --arg v $IMAGE_TAG --argjson num $number | sponge codepipeline/taskdef.json
+
+        echo ""
+        echo "########################################"
+        echo Changing any remaining IMAGE_TAG
+        echo "########################################"
+        sed "s/'$IMAGE_TAG'/$IMAGE_TAG/g" codepipeline/taskdef.json
+
+        echo ""
+        echo "########################################"
+        echo Change the ImageURI in imageDetail.json
+        echo "########################################"
+        cat codepipeline/imageDetail.json | jq '.ImageURI = $v' --arg v $ECR_REGISTRY:$IMAGE_TAG | sponge codepipeline/imageDetail.json
+
+        echo ""
+        echo "########################################"
+        echo Zipping it
+        echo "########################################"
+        zip -j codepipeline.zip codepipeline/*
+
+        echo ""
+        echo "########################################"
+        echo Copying it to S3
+        echo "########################################"
+        aws s3 cp codepipeline.zip "s3://$S3_BUCKET/codepipeline.zip"

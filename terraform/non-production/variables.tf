@@ -12,7 +12,7 @@
 
 # The name of the project
 variable "project_name" {
-  default = "project_test"
+  default = "jahed-project-test"
 }
 
 # The environment, like non-production, test, staging ...
@@ -113,7 +113,7 @@ variable "region" {
 # The profile that wil be used for talking to AWS
 # The profiles are typically configured in ~/.aws/config
 variable "profile" {
-  default = "profile-name"
+  default = "ops-lab"
 }
 
 # VPC
@@ -123,7 +123,7 @@ variable "vpc_id" {
 
 # The id of the ECS cluster
 variable "ecs_cluster_id" {
-  default = "Put your cluster id here"
+  default = "arn:aws:ecs:eu-west-1:631263907986:cluster/main-cluster"
 }
 
 # The name of the ECS cluster
@@ -133,7 +133,7 @@ variable "ecs_cluster_name" {
 
 # The ARN of the listener in the ALB
 variable "listener_arn" {
-  default = "Arn of the listener"
+  default = "arn:aws:elasticloadbalancing:eu-west-1:631263907986:listener/app/main/541a0702a3af0906/f8098a68e4ab8dbc"
 }
 
 # The subnets where tasks can run
@@ -153,7 +153,7 @@ variable "domain_zone_id" {
 
 # DNS name for the ALB
 variable "alb_dns_name" {
-  default = "alb_dns_name"
+  default = "internal-main-972878243.eu-west-1.elb.amazonaws.com"
 }
 
 #############################################################################

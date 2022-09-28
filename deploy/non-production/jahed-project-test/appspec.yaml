@@ -1,0 +1,9 @@
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: "arn:aws:ecs:eu-west-1:631263907986:task-definition/jahed-project-test"
+        LoadBalancerInfo:
+          ContainerName: "jahed-project-test"
+          ContainerPort: 3000
